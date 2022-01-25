@@ -1,0 +1,43 @@
+Arguments: 
+  /usr/local/bin/node /usr/local/bin/yarn add @vitejs/plugin-vue-jsx
+
+PATH: 
+  /Library/Frameworks/Python.framework/Versions/3.9/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:/Applications/Google Chrome.app/Contents/MacOS:/usr/local/go/bin
+
+Yarn version: 
+  1.22.10
+
+Node version: 
+  14.5.0
+
+Platform: 
+  darwin x64
+
+Trace: 
+  Error: EINVAL: invalid argument, unlink '/Users/lxg1996/Documents/vue3-vite-jsx/vite-project/node_modules/@vue/compiler-core/node_modules/source-map'
+
+npm manifest: 
+  {
+    "name": "vite-project",
+    "version": "0.0.0",
+    "scripts": {
+      "dev": "vite",
+      "build": "vue-tsc --noEmit && vite build",
+      "preview": "vite preview"
+    },
+    "dependencies": {
+      "vue": "^3.2.25"
+    },
+    "devDependencies": {
+      "@vitejs/plugin-vue": "^2.0.0",
+      "typescript": "^4.4.4",
+      "vite": "^2.7.2",
+      "vue-tsc": "^0.29.8"
+    }
+  }
+
+yarn manifest: 
+  No manifest
+
+Lockfile: 
+  No lockfile
