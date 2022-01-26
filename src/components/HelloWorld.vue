@@ -1,17 +1,17 @@
 <script lang="tsx">
 import { defineComponent } from 'vue'
 import useStore from '../store/index'
-import { Http } from '../common/util'
+import { Http } from '../common/util.js'
+let http = new Http()
 
 export default defineComponent({
     methods: {
         request () {
             let input = document.querySelector('input')
             let fd = new FormData()
-            fd.append('file', input.files[0])
-            fd.append('type', null)
-            Http.upload('/file/minio/upload', fd)
-                .then((res:any) => { this.url = res })
+            fd.append('file', input!.files![0])
+            fd.append('type', '')
+            Http.upload('/file/minio/upload', fd).then((res:any) => { this.url = res })
         }
     },
     data () {

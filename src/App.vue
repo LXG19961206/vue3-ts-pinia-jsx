@@ -12,7 +12,7 @@ onMounted(() => {
 </script>
 
 <template>
-    <img alt="Vue logo" src="./assets/logo.png" />
+<!--    <img alt="Vue logo" src="./assets/logo.png" />-->
     <component :is="comp" />
 </template>
 

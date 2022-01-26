@@ -1,8 +1,27 @@
 import qs from 'qs'
 
-export let Http = {
+type javaScriptValue = javaScriptObject | string | null | undefined | number | boolean | symbol | Array<any> | FormData
+
+interface javaScriptObject {
+    [key: string | number | symbol]: javaScriptValue
+}
+
+interface fetchFileResponse {
+    [key:string | number | symbol]:  (() => FormData) | (() => ArrayBuffer) | (() => Blob)
+}
+
+type httpFetchOptions = javaScriptObject
+
+type httpFetchUrl = string
+
+type httpFetchQuery = javaScriptObject | string
+
+export class Http {
+    constructor (options ?: httpFetchOptions) {
+        options && this.setDefaultOptions(options)
+    }
     /* 默认参数  */
-    options() {
+    getDefaultOptions():httpFetchOptions {
         return {
             method: 'GET', // 默认是 get 请求
             mode: 'cors', // 默认采用 cors
@@ -13,46 +32,49 @@ export let Http = {
             },
             body: null // 默认不传递请求体
         }
-    },
+    }
+    setDefaultOptions (options:httpFetchOptions) {
+        let defaultOptions = this.getDefaultOptions()
+        this.getDefaultOptions = function () {
+            return this.mergeOptions(options, defaultOptions)
+        }
+    }
     /* get请求 */
-    get(url, query, options = {}) {
+    get(url: httpFetchUrl, query: httpFetchQuery = '', options:httpFetchOptions = {}) {
         // query在进行传递的时候可以直接传一个键值对，会自动 qs.stringify 话
         let queryString = typeof query === 'object' ? `?${qs.stringify(query)}` : query
         return new Promise((resolve, reject) => {
             // 将查询字符串拼接到 url 后面
             url += queryString
             // 将用户传递的 options 和 默认的 options 进行合并（优先保留用户提供的参数）
-            let finalOptions = {...this.options(), ...options}
+            let finalOptions = this.mergeOptions(options)
             fetch(url, finalOptions).then(res => res.json()).then(resolve).catch(reject)
         })
-    },
+    }
     /* post方式 */
-    post(url, params, options = {}) {
+    post(url: httpFetchUrl, params: javaScriptObject | FormData, options:httpFetchOptions = {}) {
         // 将用户提供的参数和默认的参数进行合并
-        let finalOptions = {...this.options(), ...{method: 'POST'}, ...options}
+        let finalOptions:httpFetchOptions = { ...this.mergeOptions(options), ...{ method: 'POST' } };
         // 自动根据提供的 Content-Type 处理类型参数
         // 如果是 json 类型会进行 JSON.stringify
         // 如果是表单类型会进行 qs.stringify
-        finalOptions.body = this.handleContentType(finalOptions.headers[`Content-Type`], params)
+        finalOptions.body = (
+            this.handleContentType((finalOptions.headers as { [key:string]: string })[`Content-Type`], params)
+        )
         return new Promise((resolve, reject) => {
             // post 请求其实也支持拼接 query 串（虽然这种写法比较另类）
             if (options.query) fetch(url + '?' + qs.stringify(options.query), finalOptions).then(res => res.json()).then(resolve).catch(reject)
             else fetch(url, finalOptions).then(res => res.json()).then(resolve).catch(reject)
         })
-    },
+    }
     /* 请求/加载文件 */
-    fetchFile(url, fileType, options) {
+    fetchFile(url: httpFetchUrl, fileType ?: string, options ?:httpFetchOptions) {
         // 将默认的参数和用户提供的参数进行合并
-        let finalOptions = {...this.options(), ...options}
+        let finalOptions = this.mergeOptions(options || {})
         return new Promise((resolve, reject) => {
-            fetch(url, finalOptions).then(res => {
+            fetch(url, finalOptions).then((res:any) => {
                 if (!res.ok) throw new Error('file load error')
                 switch (fileType) {
-                    // 对于文本或者是图片类型的文件，使用 blob() 方法
-                    case 'text':
-                    case 'image':
-                        return res.blob()
-                    // 如果是视频或者音频类型的问题，使用 arrayBuffer
                     case 'video':
                     case 'audio':
                         return res.arrayBuffer()
@@ -66,13 +88,13 @@ export let Http = {
                         // 如果是读取文本类型的文件，会使用 fileReader 来读取文件
                         // 默认采用 UTF-8 编码方式，如果需要使用其他方式，可以提供 options 里的 encoding 字段
                         let reader = new FileReader()
-                        reader.readAsText(blobOrBuffer, options && options.encoding || 'UTF-8')
+                        reader.readAsText(blobOrBuffer as unknown as Blob, options && (options.encoding as string) || 'UTF-8')
                        // 文本加载完成后进行 resolve
                         reader.onload = () => { resolve(reader.result) }
                         break
                     case 'image':
                         // 如果是图片类型，返回图片 blob 链接
-                        resolve(URL.createObjectURL(blobOrBuffer))
+                        resolve(URL.createObjectURL(blobOrBuffer as unknown as Blob))
                         break
                     case 'video':
                     case 'audio':
@@ -82,22 +104,23 @@ export let Http = {
                         break
                     default:
                         // 其他一律按照 blob 方式进行处理
-                        resolve(URL.createObjectURL(blobOrBuffer))
+                        resolve(URL.createObjectURL(blobOrBuffer as unknown as Blob))
                         break
                 }
             }).catch(reject)
         })
-    },
+    }
     /* 上传文件  */
-    upload(url, formData, options) {
+    upload(url: httpFetchUrl, formData: FormData, options ?: httpFetchOptions) {
         // 将用户的参数和默认的参数进行合并
-        let finalOptions = { ...this.options(), ...options, body: formData, method: 'POST' }
+        let finalOptions: javaScriptObject = { ...this.mergeOptions(options || {}), body: formData, method: 'POST' }
         // 当你发送上传文件类的请求时候，不要手动去写 Content-Type，浏览器会自动帮你完成这一工作
-        delete finalOptions.headers[`Content-Type`]
+        delete (finalOptions.headers as javaScriptObject)[`Content-Type`]
         // 其余行为和普通请求类型, 无非就是采用 formData 的方式进行请求
+        debugger
         return this.post(url, formData, finalOptions)
-    },
-    handleContentType(contentType, params) {
+    }
+    handleContentType(contentType: string | undefined | null, params: javaScriptObject | FormData) {
         // 如果是传递文件的方式，直接不做处理
         if(!contentType) return params
         // 如果是 json 格式的数据
@@ -107,6 +130,21 @@ export let Http = {
             // 如果是 form 格式的数据
             return qs.stringify(params)
         }
+    }
+    mergeOptions (options: httpFetchOptions, defaultOptions = this.getDefaultOptions()) {
+        if(!options) return defaultOptions
+        let finalHeaders =  { ...(defaultOptions.headers as javaScriptObject), ...(options.headers as javaScriptObject || {})}
+        return {
+            ...defaultOptions,
+            ...options,
+            headers: Http.updateFunctionalOptions(finalHeaders)
+        }
+    }
+    static updateFunctionalOptions (options: httpFetchOptions) {
+        return Object.keys(options).reduce((prev,current, _,arr) => {
+            let value = options[current]
+            return { ...prev, [current]: typeof value === 'function' ? (value as () => unknown)() : value }
+        },{})
     }
 }
 
