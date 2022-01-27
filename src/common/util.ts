@@ -23,7 +23,7 @@ export class Http {
         options && this.setDefaultOptions(options)
     }
     /* 默认参数  */
-    getDefaultOptions():httpFetchOptions {
+    protected getDefaultOptions():httpFetchOptions {
         return {
             method: 'GET', // 默认是 get 请求
             mode: 'cors', // 默认采用 cors
@@ -35,14 +35,14 @@ export class Http {
             body: null // 默认不传递请求体
         }
     }
-    setDefaultOptions (options:httpFetchOptions) {
+    public setDefaultOptions (options:httpFetchOptions) {
         let defaultOptions = this.getDefaultOptions()
         this.getDefaultOptions = function () {
             return this.mergeOptions(options, defaultOptions)
         }
     }
     /* get请求 */
-    get(url: httpFetchUrl, query: httpFetchQuery = '', options:httpFetchOptions = {}) {
+    public get(url: httpFetchUrl, query: httpFetchQuery = '', options:httpFetchOptions = {}) {
         // query在进行传递的时候可以直接传一个键值对，会自动 qs.stringify 话
         let queryString = typeof query === 'object' ? `?${qs.stringify(query)}` : query
         return new Promise((resolve, reject) => {
@@ -54,9 +54,9 @@ export class Http {
         })
     }
     /* post方式 */
-    post(url: httpFetchUrl, params: JavaScriptObject | FormData, options:httpFetchOptions = {}, isUpload:boolean = false) {
+    public post(url: httpFetchUrl, params: JavaScriptObject | FormData, options:httpFetchOptions = {}, isUpload:boolean = false) {
         // 将用户提供的参数和默认的参数进行合并
-        let finalOptions:httpFetchOptions = isUpload ? options : { ...this.mergeOptions(options), ...{ method: 'POST' } };
+        let finalOptions:httpFetchOptions = isUpload ? options : { ...this.mergeOptions(options), ...{ method: 'POST' } }
         // 自动根据提供的 Content-Type 处理类型参数
         // 如果是 json 类型会进行 JSON.stringify
         // 如果是表单类型会进行 qs.stringify
@@ -70,7 +70,7 @@ export class Http {
         })
     }
     /* 请求/加载文件 */
-    fetchFile(url: httpFetchUrl, fileType ?: string, options ?:httpFetchOptions) {
+    public fetchFile(url: httpFetchUrl, fileType ?: string, options ?:httpFetchOptions) {
         // 将默认的参数和用户提供的参数进行合并
         let finalOptions = this.mergeOptions(options || {})
         return new Promise((resolve, reject) => {
@@ -113,7 +113,7 @@ export class Http {
         })
     }
     /* 上传文件  */
-    upload(url: httpFetchUrl, formData: FormData, options ?: httpFetchOptions) {
+    public upload(url: httpFetchUrl, formData: FormData, options ?: httpFetchOptions) {
         // 将用户的参数和默认的参数进行合并
         let finalOptions: JavaScriptObject = { ...this.mergeOptions(options || {}), body: formData, method: 'POST' }
         // 当你发送上传文件类的请求时候，不要手动去写 Content-Type，浏览器会自动帮你完成这一工作
@@ -121,7 +121,7 @@ export class Http {
         // 其余行为和普通请求类型, 无非就是采用 formData 的方式进行请求
         return this.post(url, formData, finalOptions, true)
     }
-    handleContentType(contentType: string | undefined | null, params: JavaScriptObject) {
+    private handleContentType(contentType: string | undefined | null, params: JavaScriptObject) {
         // 如果是传递文件的方式，直接不做处理
         if(!contentType) return params
         // 如果是 json 格式的数据
@@ -132,7 +132,7 @@ export class Http {
             return qs.stringify(params)
         }
     }
-    mergeOptions (options: httpFetchOptions, defaultOptions = this.getDefaultOptions()) {
+    private mergeOptions (options: httpFetchOptions, defaultOptions = this.getDefaultOptions()) {
         if(!options) return defaultOptions
         let finalHeaders =  { ...(defaultOptions.headers as JavaScriptObject), ...(options.headers as JavaScriptObject || {})}
         return {
@@ -141,8 +141,8 @@ export class Http {
             headers: Http.updateFunctionalOptions(finalHeaders)
         }
     }
-    static updateFunctionalOptions (options: httpFetchOptions) {
-        return Object.keys(options).reduce((prev,current, _,arr) => {
+    protected static updateFunctionalOptions (options: httpFetchOptions) {
+        return Object.keys(options).reduce((prev,current, _) => {
             let value = options[current]
             return { ...prev, [current]: typeof value === 'function' ? (value as () => unknown)() : value }
         },{})
