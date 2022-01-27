@@ -1,20 +1,22 @@
-import qs from 'qs'
+import * as qs from 'qs'
 
-type javaScriptValue = javaScriptObject | string | null | undefined | number | boolean | symbol | Array<any> | FormData
+type JavaScriptValue = JavaScriptObject | generalJavaScriptFunc | string | null | undefined | number | boolean | symbol | Array<any> | FormData
 
-interface javaScriptObject {
-    [key: string | number | symbol]: javaScriptValue
+interface JavaScriptObject {
+    [key: string | number | symbol]: JavaScriptValue
 }
 
 interface fetchFileResponse {
     [key:string | number | symbol]:  (() => FormData) | (() => ArrayBuffer) | (() => Blob)
 }
 
-type httpFetchOptions = javaScriptObject
+type generalJavaScriptFunc = (args: unknown []) => unknown
+
+type httpFetchOptions = JavaScriptObject
 
 type httpFetchUrl = string
 
-type httpFetchQuery = javaScriptObject | string
+type httpFetchQuery = JavaScriptObject | string
 
 export class Http {
     constructor (options ?: httpFetchOptions) {
@@ -52,14 +54,14 @@ export class Http {
         })
     }
     /* post方式 */
-    post(url: httpFetchUrl, params: javaScriptObject | FormData, options:httpFetchOptions = {}) {
+    post(url: httpFetchUrl, params: JavaScriptObject | FormData, options:httpFetchOptions = {}, isUpload:boolean = false) {
         // 将用户提供的参数和默认的参数进行合并
-        let finalOptions:httpFetchOptions = { ...this.mergeOptions(options), ...{ method: 'POST' } };
+        let finalOptions:httpFetchOptions = isUpload ? options : { ...this.mergeOptions(options), ...{ method: 'POST' } };
         // 自动根据提供的 Content-Type 处理类型参数
         // 如果是 json 类型会进行 JSON.stringify
         // 如果是表单类型会进行 qs.stringify
         finalOptions.body = (
-            this.handleContentType((finalOptions.headers as { [key:string]: string })[`Content-Type`], params)
+            this.handleContentType((finalOptions.headers as { [key:string]: string })[`Content-Type`], params as JavaScriptObject)
         )
         return new Promise((resolve, reject) => {
             // post 请求其实也支持拼接 query 串（虽然这种写法比较另类）
@@ -72,12 +74,12 @@ export class Http {
         // 将默认的参数和用户提供的参数进行合并
         let finalOptions = this.mergeOptions(options || {})
         return new Promise((resolve, reject) => {
-            fetch(url, finalOptions).then((res:any) => {
+            fetch(url, finalOptions).then((res: Response | fetchFileResponse) => {
                 if (!res.ok) throw new Error('file load error')
                 switch (fileType) {
                     case 'video':
                     case 'audio':
-                        return res.arrayBuffer()
+                        return (res as fetchFileResponse).arrayBuffer()
                     // 如果都不是，采用 blob 的方式，支持用户进行下载等操作
                     default:
                         return res.blob()
@@ -99,7 +101,7 @@ export class Http {
                     case 'video':
                     case 'audio':
                         // 如果是媒体类型，转为 blob 后返回链接
-                        let blob = new Blob([blobOrBuffer], { type: `${fileType}/*` })
+                        let blob = new Blob([blobOrBuffer as BlobPart], { type: `${fileType}/*` })
                         resolve(URL.createObjectURL(blob))
                         break
                     default:
@@ -113,14 +115,13 @@ export class Http {
     /* 上传文件  */
     upload(url: httpFetchUrl, formData: FormData, options ?: httpFetchOptions) {
         // 将用户的参数和默认的参数进行合并
-        let finalOptions: javaScriptObject = { ...this.mergeOptions(options || {}), body: formData, method: 'POST' }
+        let finalOptions: JavaScriptObject = { ...this.mergeOptions(options || {}), body: formData, method: 'POST' }
         // 当你发送上传文件类的请求时候，不要手动去写 Content-Type，浏览器会自动帮你完成这一工作
-        delete (finalOptions.headers as javaScriptObject)[`Content-Type`]
+        delete (finalOptions.headers as JavaScriptObject)[`Content-Type`]
         // 其余行为和普通请求类型, 无非就是采用 formData 的方式进行请求
-        debugger
-        return this.post(url, formData, finalOptions)
+        return this.post(url, formData, finalOptions, true)
     }
-    handleContentType(contentType: string | undefined | null, params: javaScriptObject | FormData) {
+    handleContentType(contentType: string | undefined | null, params: JavaScriptObject) {
         // 如果是传递文件的方式，直接不做处理
         if(!contentType) return params
         // 如果是 json 格式的数据
@@ -133,7 +134,7 @@ export class Http {
     }
     mergeOptions (options: httpFetchOptions, defaultOptions = this.getDefaultOptions()) {
         if(!options) return defaultOptions
-        let finalHeaders =  { ...(defaultOptions.headers as javaScriptObject), ...(options.headers as javaScriptObject || {})}
+        let finalHeaders =  { ...(defaultOptions.headers as JavaScriptObject), ...(options.headers as JavaScriptObject || {})}
         return {
             ...defaultOptions,
             ...options,
