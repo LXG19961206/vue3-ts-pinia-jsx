@@ -18,6 +18,9 @@ type httpFetchUrl = string
 
 type httpFetchQuery = JavaScriptObject | string
 
+/**
+ * 完全基于 fetch 构建的 http 请求库
+ */
 export class Http {
     constructor (options ?: httpFetchOptions) {
         options && this.setDefaultOptions(options)
