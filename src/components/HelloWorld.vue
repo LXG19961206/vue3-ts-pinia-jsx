@@ -23,7 +23,8 @@ export default defineComponent({
     data () {
         return {
             url: '',
-            file: ''
+            file: '',
+            color: '#fff'
         }
     },
     render () {
@@ -45,7 +46,7 @@ export default defineComponent({
 </script>
 <style scoped>
 a {
-    color: #42b983;
+    color: v-bind(color);
 }
 
 label {
