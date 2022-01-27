@@ -1,10 +1,10 @@
 import * as qs from 'qs'
 
-type JavaScriptValue = JavaScriptObject | generalJavaScriptFunc | string | null | undefined | number | boolean | symbol | Array<any> | FormData
+type BaseJavaScriptType = string | null | undefined | number | boolean | symbol
 
-interface JavaScriptObject {
-    [key: string | number | symbol]: JavaScriptValue
-}
+type JavaScriptValue = JavaScriptObject | generalJavaScriptFunc | BaseJavaScriptType | Array<unknown> | FormData
+
+interface JavaScriptObject { [key: string | number | symbol]: JavaScriptValue }
 
 interface fetchFileResponse {
     [key:string | number | symbol]:  (() => FormData) | (() => ArrayBuffer) | (() => Blob)
@@ -44,8 +44,15 @@ export class Http {
             return this.mergeOptions(options, defaultOptions)
         }
     }
+    public replaceDefaultOptions (options: httpFetchOptions) {
+        this.getDefaultOptions = () => options
+    }
     /* get请求 */
-    public get(url: httpFetchUrl, query: httpFetchQuery = '', options:httpFetchOptions = {}) {
+    public get(
+        url: httpFetchUrl, 
+        query: httpFetchQuery = '', 
+        options:httpFetchOptions = {}
+    ) {
         // query在进行传递的时候可以直接传一个键值对，会自动 qs.stringify 话
         let queryString = typeof query === 'object' ? `?${qs.stringify(query)}` : query
         return new Promise((resolve, reject) => {
@@ -57,8 +64,14 @@ export class Http {
         })
     }
     /* post方式 */
-    public post(url: httpFetchUrl, params: JavaScriptObject | FormData, options:httpFetchOptions = {}, isUpload:boolean = false) {
+    public post(
+        url: httpFetchUrl, 
+        params: JavaScriptObject | FormData, 
+        options:httpFetchOptions = {}, 
+        isUpload:boolean = false
+    ) {
         // 将用户提供的参数和默认的参数进行合并
+        // 但是如果是 通过调用upload 方法执行到这里时, 则不进行合并, 因为 uplpad 已经默认合并过一次参数
         let finalOptions:httpFetchOptions = isUpload ? options : { ...this.mergeOptions(options), ...{ method: 'POST' } }
         // 自动根据提供的 Content-Type 处理类型参数
         // 如果是 json 类型会进行 JSON.stringify
@@ -73,7 +86,11 @@ export class Http {
         })
     }
     /* 请求/加载文件 */
-    public fetchFile(url: httpFetchUrl, fileType ?: string, options ?:httpFetchOptions) {
+    public fetchFile(
+        url: httpFetchUrl, 
+        fileType ?: string, 
+        options ?:httpFetchOptions
+    ) {
         // 将默认的参数和用户提供的参数进行合并
         let finalOptions = this.mergeOptions(options || {})
         return new Promise((resolve, reject) => {
@@ -116,9 +133,17 @@ export class Http {
         })
     }
     /* 上传文件  */
-    public upload(url: httpFetchUrl, formData: FormData, options ?: httpFetchOptions) {
+    public upload(
+        url: httpFetchUrl, 
+        formData: FormData, 
+        options ?: httpFetchOptions
+    ) {
         // 将用户的参数和默认的参数进行合并
-        let finalOptions: JavaScriptObject = { ...this.mergeOptions(options || {}), body: formData, method: 'POST' }
+        let finalOptions: JavaScriptObject = { 
+            ...this.mergeOptions(options || {}), 
+            body: formData, 
+            method: 'POST' 
+        }
         // 当你发送上传文件类的请求时候，不要手动去写 Content-Type，浏览器会自动帮你完成这一工作
         delete (finalOptions.headers as JavaScriptObject)[`Content-Type`]
         // 其余行为和普通请求类型, 无非就是采用 formData 的方式进行请求
@@ -137,7 +162,10 @@ export class Http {
     }
     private mergeOptions (options: httpFetchOptions, defaultOptions = this.getDefaultOptions()) {
         if(!options) return defaultOptions
-        let finalHeaders =  { ...(defaultOptions.headers as JavaScriptObject), ...(options.headers as JavaScriptObject || {})}
+        let finalHeaders =  { 
+            ...(defaultOptions.headers as JavaScriptObject), 
+            ...(options.headers as JavaScriptObject || {})
+        }
         return {
             ...defaultOptions,
             ...options,
@@ -147,7 +175,10 @@ export class Http {
     protected static updateFunctionalOptions (options: httpFetchOptions) {
         return Object.keys(options).reduce((prev,current, _) => {
             let value = options[current]
-            return { ...prev, [current]: typeof value === 'function' ? (value as () => unknown)() : value }
+            return { 
+                ...prev, 
+                [current]: typeof value === 'function' ? (value as () => unknown)() : value 
+            }
         },{})
     }
 }
