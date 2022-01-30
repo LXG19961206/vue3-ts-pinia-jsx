@@ -6,11 +6,9 @@ type JavaScriptValue = JavaScriptObject | generalJavaScriptFunc | BaseJavaScript
 
 interface JavaScriptObject { [key: string | number | symbol]: JavaScriptValue }
 
-interface fetchFileResponse {
-    [key:string | number | symbol]:  (() => FormData) | (() => ArrayBuffer) | (() => Blob)
-}
+interface fetchFileResponse {[key:string | number | symbol]:  (() => FormData) | (() => ArrayBuffer) | (() => Blob)}
 
-type generalJavaScriptFunc = (args: unknown []) => unknown
+type generalJavaScriptFunc = (...args: unknown []) => unknown
 
 type httpFetchOptions = JavaScriptObject
 
@@ -18,9 +16,9 @@ type httpFetchUrl = string
 
 type httpFetchQuery = JavaScriptObject | string
 
-/**
- * 完全基于 fetch 构建的 http 请求库
- */
+/* 完全基于 fetch 构建的 http 请求库 */
+/* 更加轻量，采用浏览器内置 api fetch ，无需引入其他 npm 包  */
+/* 不足是无法在请求途中进行 abort（废除）行为  */
 export class Http {
     constructor (options ?: httpFetchOptions) {
         options && this.setDefaultOptions(options)
@@ -31,6 +29,7 @@ export class Http {
             method: 'GET', /* 默认是 get 请求 */
             mode: 'cors',  /* 默认采用 cors */
             cache: 'no-cache', /* no-cache */
+            timeout: 30000, /* 超时时间 30s  */
             headers: {
                 'Content-Type': 'application/json',  /* 默认采用 json 方式进行请求*/
                 'authorization': '5754415b44514b555343443a50372e57443d26553c'  /* 请求应该携带的 token */
@@ -49,9 +48,9 @@ export class Http {
     }
     /* get请求 */
     public get(
-        url: httpFetchUrl,
-        query: httpFetchQuery = '',
-        options:httpFetchOptions = {}
+      url: httpFetchUrl,
+      query: httpFetchQuery = '',
+      options:httpFetchOptions = {}
     ) {
         /* query在进行传递的时候可以直接传一个键值对，会自动 qs.stringify */
         let queryString = typeof query === 'object' ? `?${qs.stringify(query)}` : query
@@ -60,7 +59,11 @@ export class Http {
             url += queryString
             /* 将用户传递的 options 和 默认的 options 进行合并（优先保留用户提供的参数）*/
             let finalOptions = this.mergeOptions(options)
-            fetch(url, finalOptions).then(res => res.json()).then(resolve).catch(reject)
+            let timeoutInterceptor = this.useTimeoutInterceptor(finalOptions)
+            fetch(url, finalOptions)
+              .then(res => res.json())
+              .then(response => timeoutInterceptor(resolve, reject, response))
+              .catch(reject)
         })
     }
     /* post方式 */
@@ -71,13 +74,13 @@ export class Http {
         isUpload:boolean = false
     ) {
         /* 将用户提供的参数和默认的参数进行合并 */
-        /* 但是如果是 通过调用upload 方法执行到这里时, 则不进行合并, 因为 uplpad 已经默认合并过一次参数 */
+        /* 但是如果是 通过调用upload 方法执行到这里时, 则不进行合并, 因为 upload 已经默认合并过一次参数 */
         let finalOptions:httpFetchOptions = isUpload ? options : { ...this.mergeOptions(options), ...{ method: 'POST' } }
         /*
-            自动根据提供的 Content-Type 处理类型参数
-            如果是 json 类型会进行 JSON.stringify
-            如果是表单类型会进行 qs.stringify
-        */
+         *  自动根据提供的 Content-Type 处理类型参数
+         *  如果是 json 类型会进行 JSON.stringify
+         *  如果是表单类型会进行 qs.stringify
+         */
         finalOptions.body = (
             this.handleContentType((finalOptions.headers as { [key:string]: string })[`Content-Type`], params as JavaScriptObject)
         )
@@ -177,11 +180,35 @@ export class Http {
     protected static updateFunctionalOptions (options: httpFetchOptions) {
         return Object.keys(options).reduce((prev,current, _) => {
             let value = options[current]
-            return {
-                ...prev,
-                [current]: typeof value === 'function' ? (value as () => unknown)() : value
-            }
+            return { ...prev, [current]: typeof value === 'function' ? (value as () => unknown)() : value }
         },{})
+    }
+    protected  useTimeoutInterceptor (options: httpFetchOptions) {
+        let requestStartTime = new Date().getTime(),
+            isPending = true,
+           timer = setTimeout(() => {
+                 throw new Error('request out of the time')
+                 isPending = false
+             }, options.timeout as number)
+        return (
+          resolve: generalJavaScriptFunc,
+          reject: generalJavaScriptFunc,
+          response: Response
+        ) => {
+            if(!isPending) {
+                clearTimeout(timer)
+                return reject('timeout')
+            }
+            let requestDuration = new Date().getTime() - requestStartTime
+            if(options.timeout) {
+                /* 如果用户配置了超时的时间 */
+                return requestDuration < (options.timeout as number)
+                  ? resolve(response)
+                  : reject('timeout' + (options.timeout as number))
+            } else {
+                return resolve(response)
+            }
+        }
     }
 }
 

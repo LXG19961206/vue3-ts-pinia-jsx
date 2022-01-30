@@ -11,12 +11,13 @@ export default defineComponent({
             let fd = new FormData()
             fd.append('file', input!.files![0])
             fd.append('type', '32323')
-            console.log(fd.get('file'))
             http.get('http://119.3.227.27:29607/hello/429update', {
-                altitude: 900,
+                altitude: 90000,
                 head: 'east'
             }).then(res => {
-                console.log(res)
+                console.log(res, 4444)
+            }).catch(err => {
+                console.log(err, 4444)
             })
         }
     },
